@@ -338,7 +338,7 @@ bar
 pi@raspberrypi400:~/memrun/C/mount_tmpfs $ 
 ```
 
-Finally [mount_tmpfs/info.c](mount_tmpfs/info.c) is another example of shebang processing (#!/usr/local/bin/gcc -run). On shown invocation 31483 is process ID of running compiled info.c executable doit, 31496 is process ID of /usr/local/bin/grun, pointed to by gcc. The first directory printed shows mounted tmpfs containing executable doit. During compilation temporary gcc files were stored in that directory as well. File descriptor 3 in second directory is the loop device needed for mounting tmpfs under "/proc/31483/fd":
+Finally [mount_tmpfs/info.c](mount_tmpfs/info.c) is another example of shebang processing (#!/usr/local/bin/gcc -run). On shown invocation 31496 is process ID of running compiled info.c executable doit, 31483 is process ID of /usr/local/bin/grun, pointed to by gcc. The first directory printed shows mounted tmpfs containing executable doit. During compilation temporary gcc files were stored in that directory as well. File descriptor 3 in second directory is the loop device needed for mounting tmpfs under "/proc/31483/fd":
 ```
 pi@raspberrypi400:~/memrun/C/mount_tmpfs $ ./info.c 123
 My process ID : 31496
