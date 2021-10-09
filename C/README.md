@@ -310,13 +310,13 @@ Previous work in ths repo made use of memfd_create system call, first to create 
 
 I learned from [*Uncle Billy* on unix.stackexchange.com](https://unix.stackexchange.com/questions/672179/linux-mount-point-in-proc-virtual-filesystem) how to mount a memory filesystem easier than I did with just "mount -t tmpfs ...". New implementation of "-run" enabled gcc/g++ and examples how to use are in [mount_tmpfs](mount_tmpfs) directory.
 
-Like before temporary memory directory gets mounted under "/proc/$$/fd" in process specific directory ($$ is current process id). In case that fails, message is generated that "/tmp/$$" workarodund gets used. This happend under RHEL selinux. In case you see the workarodund message, you can make selinux accept mounting under "/proc/$$/fd" using these commands once:  
+Like before temporary memory directory gets mounted under "/proc/$$/fd" in process specific directory ($$ is current process id). In case that fails, message is generated that "/tmp/$$" workaround gets used. This happend under RHEL selinux. In case you see the workarodund message, you can make selinux accept mounting under "/proc/$$/fd" using these commands once:  
 ```
 sudo ausearch -c 'mount' --raw | grep denied | tail | audit2allow -M my-mount
 semodule -i my-mount.pp
 ```
 
-Different to before, now grun (and gcc/g++ links to grun) get stored under "/user/local/bin". This allows same access path for all users for "-run" enabled gcc/g++ in C/C++ script shebang. You do that by executing [mount_tmpfs/_install](mount_tmpfs/_install) (from anywhere). In case you want to undo that, execute [mount_tmpfs/_uninstall](mount_tmpfs/_uninstall).
+Different to before, now grun (and gcc/g++ links to grun) get stored under "/user/local/bin". This allows same access path for all users for "-run" enabled gcc/g++ in C/C++ script shebang. You do that by executing [mount_tmpfs/_install.sh](mount_tmpfs/_install.sh) (from anywhere). In case you want to undo that, execute [mount_tmpfs/_uninstall.sh](mount_tmpfs/_uninstall.sh).
 
 Executable C++ script [mount_tmpfs/HelloWorld.cpp](mount_tmpfs/HelloWorld.cpp) uses shebang "#!/usr/local/bin/g++ -run", and prints read input besides "Hello ...":
 ```
