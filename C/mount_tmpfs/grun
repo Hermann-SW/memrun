@@ -1,0 +1,61 @@
+#!/usr/bin/bash
+
+# check for "-run" arg
+args=($*)
+for((i=0; i<$#; ++i))
+do
+  if [[ ${args[$i]} == "-run" ]]; then break; fi
+done
+
+# in case no "-run" arg found, compile with real compiler and exit
+cmp=$(basename "$0")
+if [[ $i -ge $# ]]; then "/usr/bin/$cmp" "$@"; exit; fi
+
+
+# determine language, options for real compiler and src language
+if [[ "$cmp" == "gcc" ]]; then lng=c; else lng=c++; fi
+opts=${args[*]:0:$i}
+shift $((i+1))
+src=$1
+shift
+
+# mount tmpfs under $mnt, and switch ownership to current user
+mnt="/proc/$$/fd"
+sudo mount -t tmpfs tmpfs "$mnt" 2>> /dev/null
+if [ $? -ne 0 ]
+then
+  # fallback for eg. selinux
+  echo "[/tmp/$$ workaround]"
+  export mnt="/tmp/$$"
+  mkdir "$mnt"
+  sudo mount -t tmpfs tmpfs "$mnt"
+fi
+sudo chown "$(whoami)". "$mnt"
+
+# for execution as command processor
+function shebang() {
+  IFS=''
+
+  read -r line
+  if [[ ${line:0:2} != "#!" ]]; then echo "$line"; fi
+
+  while read -r line
+  do
+    echo "$line" 
+  done
+}
+
+
+# compile $src, store executable in memory file ...
+TMPDIR="$mnt" "/usr/bin/$cmp" $opts -o "$mnt"/doit -x $lng <(shebang < "$src")
+
+# ... and execute it with args
+"$mnt/doit" "$@"
+
+
+# cleanup in case of workaround
+if [ ${mnt:0:5} == "/tmp/" ]
+then
+  sudo umount "$mnt"
+  rmdir "$mnt"
+fi
