@@ -304,23 +304,61 @@ In order to run completely from RAM, a directory in RAM is needed for temporary 
 
 So now "-run" enabled gcc/g++ runs completely from RAM!
 
+## mount_tmpfs technique works without memfd_create system call
+
+Previous work in ths repo made use of memfd_create system call, first to create a single memory file, later to create a filesystem in that memory file. I will keep previous tools and examples for using memfd_create system call.  
+
+I learned from [*Uncle Billy* on unix.stackexchange.com](https://unix.stackexchange.com/questions/672179/linux-mount-point-in-proc-virtual-filesystem) how to mount a memory filesystem easier than I did with just "mount -t tmpfs ...". New implementation of "-run" enabled gcc/g++ and examples how to use are in [mount_tmpfs](mount_tmpfs) directory.
+
+Like before temporary memory directory gets mounted under "/proc/$$/fd" in process specific directory ($$ is current process id). In case that fails, message is generated that "/tmp/$$" workarodund gets used. This happend under RHEL selinux. In case you see the workarodund message, you can make selinux accept mounting under "/proc/$$/fd" using these commands once:  
 ```
-pi@raspberrypi400:~/memrun/C $ fortune -s | bin/g++ -run demo.cpp foo 123
-bar foo
-Sorry.  I forget what I was going to say.
-pi@raspberrypi400:~/memrun/C $ 
-pi@raspberrypi400:~/memrun/C $ cat demo.cpp 
-/**
-*/
-#include <iostream>
+sudo ausearch -c 'mount' --raw | grep denied | tail | audit2allow -M my-mount
+semodule -i my-mount.pp
+```
 
-int main(int argc, char *argv[])
-{
-  printf("bar %s\n", argc>1 ? argv[1] : "(undef)");
+Different to before, now grun (and gcc/g++ links to grun) get stored under "/user/local/bin". This allows same access path for all users for "-run" enabled gcc/g++ in C/C++ script shebang. You do that by executing [mount_tmpfs/_install](mount_tmpfs/_install) (from anywhere). In case you want to undo that, execute [mount_tmpfs/_uninstall](mount_tmpfs/_uninstall).
 
-  for(char c; std::cin.read(&c, 1); )  { std::cout << c; }
+Executable C++ script [mount_tmpfs/HelloWorld.cpp](mount_tmpfs/HelloWorld.cpp) uses shebang "#!/usr/local/bin/g++ -run", and prints read input besides "Hello ...":
+```
+pi@raspberrypi400:~/memrun/C/mount_tmpfs $ fortune -s | ./HelloWorld.cpp 
+Hello, World!
+Speer's 1st Law of Proofreading:
+	The visibility of an error is inversely proportional to the
+	number of times you have looked at it.
+pi@raspberrypi400:~/memrun/C/mount_tmpfs $ 
+```
 
-  return 0;
-}
-pi@raspberrypi400:~/memrun/C $
+Interaction between bash and C++ in bash script are demonstrated in [mount_tmpfs/run_from_memory_cin.cpp](mount_tmpfs/run_from_memory_cin.cpp). Here bash reads C++ output, and prints it "C: " prefixed. Bash passes "42" as first arg to C++ code, which prints it:
+```
+pi@raspberrypi400:~/memrun/C/mount_tmpfs $ uname -o | ./run_from_memory_cin.cpp 
+foo
+C: bar 42
+C: GNU/Linux
+bar
+pi@raspberrypi400:~/memrun/C/mount_tmpfs $ 
+```
+
+Finally [mount_tmpfs/info.c](mount_tmpfs/info.c) is another example of shebang processing (#!/usr/local/bin/gcc -run). On shown invocation 31483 is process ID of running compiled info.c executable doit, 31496 is process ID of /usr/local/bin/grun, pointed to by gcc. The first directory printed shows mounted tmpfs containing executable doit. During compilation temporary gcc files were stored in that directory as well. File descriptor 3 in second directory is the loop device needed for mounting tmpfs under "/proc/31483/fd":
+```
+pi@raspberrypi400:~/memrun/C/mount_tmpfs $ ./info.c 123
+My process ID : 31496
+argv[0] : /proc/31483/fd/doit
+argv[1] : 123
+
+evecve --> /usr/bin/ls -al /proc/31496/fd/ /proc/31483/fd
+/proc/31483/fd:
+total 8
+drwxrwxrwt 2 pi pi   60 Oct  7 13:23 .
+dr-xr-xr-x 9 pi pi    0 Oct  7 13:23 ..
+-rwxr-xr-x 1 pi pi 8112 Oct  7 13:23 doit
+
+/proc/31496/fd/:
+total 0
+dr-x------ 2 pi pi  0 Oct  7 13:23 .
+dr-xr-xr-x 9 pi pi  0 Oct  7 13:23 ..
+lrwx------ 1 pi pi 64 Oct  7 13:23 0 -> /dev/pts/0
+lrwx------ 1 pi pi 64 Oct  7 13:23 1 -> /dev/pts/0
+lrwx------ 1 pi pi 64 Oct  7 13:23 2 -> /dev/pts/0
+lr-x------ 1 pi pi 64 Oct  7 13:23 3 -> /proc/31496/fd
+pi@raspberrypi400:~/memrun/C/mount_tmpfs $ 
 ```
